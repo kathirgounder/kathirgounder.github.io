@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Large source videos — the site uses the web-optimized .mp4s in media/.
+# (GitHub rejects files >100MB; these originals stay local only.)
+*.mov
+*.MOV
+
+# Source images — processed versions live in media/photos/ and media/profile.jpg
+media/photography/
+media/profilephoto/
+
+# Unused export
+output.mp4

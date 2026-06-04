@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Kathir — Portfolio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Spectral:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- top nav -->
+  <nav class="nav">
+    <a class="brand" href="index.html">Kathir</a>
+    <div class="links">
+      <a href="#projects">Projects</a>
+      <a href="#photography">Photography</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="spacer"></div>
+    <a class="btn ghost" href="mailto:kathirgounder@gmail.com">Email</a>
+    <a class="btn solid" href="https://github.com/kathirgounder" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+
+  <!-- hero -->
+  <header class="section wrap">
+    <div class="hero">
+      <div>
+        <div class="whoami">
+          <img class="avatar" src="media/profile.jpg" alt="Kathir Gounder" />
+          <div>
+            <p class="who-name">Kathir Gounder</p>
+            <p class="who-sub">CS @ Georgia Tech · GTSFM maintainer · SWE @ Esri</p>
+          </div>
+        </div>
+
+        <h1>Mixture of: Geography, Computer Vision, Robotics & Factor Graphs, History, Architecture, and GIS</h1>
+        <p class="lede">I'm a CS master's student in Frank Dellaert's Lab at Georgia Tech, where I contribute to <a href="https://github.com/borglab/gtsam" target="_blank" rel="noopener">GTSAM (4000+ Github Stars)</a> and help maintain <a href="https://github.com/borglab/gtsfm" target="_blank" rel="noopener">GTSFM (500+ Stars)</a>. I've been interning at ESRI through Grad School. The fly-throughs to the right are real reconstructions by GTSFM, estimated from web-scraped tourist images. Trying to increase my Gaussian Splat portfolio right now!</p>
+
+        <p class="built">Focus:</p>
+        <ul class="bullets">
+          <li>Geospatial systems, mapping &amp; photogrammetry</li>
+          <li>State Estimation &amp; Factor Graphs</li>
+          <li>Gaussian Splatting &amp; Novel View Synthesis</li>
+        </ul>
+      </div>
+
+      <div class="cluster-wrap">
+        <div class="cluster" aria-label="Recent GTSFM reconstructions">
+          <a class="bubble b1" href="project.html?id=reconstructions" title="Thanjavur" aria-label="3D reconstructions">
+            <video src="media/thanjavur-card.mp4" muted playsinline loop autoplay></video>
+            <span class="bubble-label">Thanjavur</span>
+          </a>
+          <a class="bubble b2" href="project.html?id=reconstructions" title="Sacré-Cœur" aria-label="3D reconstructions">
+            <video src="media/sacrecoeur-card.mp4" muted playsinline loop autoplay></video>
+            <span class="bubble-label">Sacré-Cœur</span>
+          </a>
+          <a class="bubble b3" href="project.html?id=reconstructions" title="Brussels" aria-label="3D reconstructions">
+            <video src="media/brussels-card.mp4" muted playsinline loop autoplay></video>
+            <span class="bubble-label">Brussels</span>
+          </a>
+          <a class="bubble b4" href="project.html?id=reconstructions" title="Gaussian Splat" aria-label="3D reconstructions">
+            <video src="media/templesplat-card.mp4" muted playsinline loop autoplay></video>
+            <span class="bubble-label">Gaussian Splat</span>
+          </a>
+        </div>
+        <p class="cluster-legend">Recent work — GTSFM reconstructions &amp; splats. Hover any to open.</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- projects -->
+  <section class="section band" id="projects">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Projects</h2>
+        <p>Hover or focus to play previews. On touch devices, tap to play/pause. Click a card to open the write-up.</p>
+      </div>
+      <ul class="card-grid" id="card-grid"><!-- cards injected by script --></ul>
+    </div>
+  </section>
+
+  <!-- photography -->
+  <section class="section band" id="photography">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Photography</h2>
+        <p>A few frames I've taken. Add yours in <code>media/photos/</code> and list them in <code>projects.js</code>.</p>
+      </div>
+      <div class="scatter" id="photo-grid"><!-- injected --></div>
+    </div>
+  </section>
+
+  <!-- about -->
+  <section class="section wrap" id="about">
+    <div class="section-head"><h2>About</h2></div>
+    <p class="lede">Replace this with a couple of sentences about yourself — what you build, what you're into, and what you're looking for.</p>
+  </section>
+
+  <!-- footer -->
+  <footer class="footer-bar" id="contact">
+    <div class="wrap">
+      <span>Let's build something — <a href="mailto:kathirgounder@gmail.com">kathirgounder@gmail.com</a></span>
+      <span class="small">© <span id="year"></span> Kathir</span>
+    </div>
+  </footer>
+
+  <script src="projects.js"></script>
+  <script>
+    /* ---- build cards from PROJECTS ---- */
+    const grid = document.getElementById('card-grid');
+    grid.innerHTML = window.PROJECTS.map(function (p) {
+      const tag = p.tag ? '<span class="tag">' + p.tag + '</span>' : '';
+      return ''
+        + '<li>'
+        + '  <a class="card" href="project.html?id=' + encodeURIComponent(p.id) + '" aria-label="' + p.title + '">'
+        + '    <div class="video">'
+        + '      <video src="' + p.cardVideo + '" muted playsinline preload="metadata" loop aria-hidden="true"></video>'
+        +        tag
+        + '      <div class="name"><h3>' + p.title + '</h3><p>' + (p.subtitle || '') + '</p></div>'
+        + '      <div class="hint">Tap to play</div>'
+        + '    </div>'
+        + '  </a>'
+        + '</li>';
+    }).join('');
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    /* ---- build photography collage (auto masonry scatter) ---- */
+    const photoGrid = document.getElementById('photo-grid');
+    const photos = window.PHOTOS || [];
+    if (photos.length) {
+      const PHOTO_V = 5;   // bump this whenever photos are re-processed, to bypass browser cache
+      photoGrid.innerHTML = photos.map(function (ph) {
+        return '<figure class="snap">'
+          + '<img src="' + ph.src + '?v=' + PHOTO_V + '" alt="' + (ph.caption || '') + '" />'
+          + (ph.caption ? '<figcaption>' + ph.caption + '</figcaption>' : '')
+          + '</figure>';
+      }).join('');
+
+      const snaps = Array.prototype.slice.call(photoGrid.querySelectorAll('.snap'));
+
+      // deterministic pseudo-random so the layout is stable across reloads
+      function rand(seed) { const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+      function layout() {
+        const W = photoGrid.clientWidth;
+        const cols = W < 540 ? 2 : (W < 860 ? 3 : 4);
+        const colW = W / cols;
+        const photoW = Math.round(colW * 1.18);        // wider than column => horizontal overlap
+        const colH = new Array(cols).fill(0);
+
+        snaps.forEach(function (snap, i) {
+          const img = snap.querySelector('img');
+          const ratio = (img.naturalWidth && img.naturalHeight)
+            ? img.naturalHeight / img.naturalWidth : 0.667;   // h/w; default 3:2 landscape
+          // portrait shots get a little narrower so they don't tower
+          const w = ratio > 1 ? Math.round(photoW * 0.78) : photoW;
+          const h = w * ratio + 34;                      // + matte/caption chrome estimate
+
+          // place in the currently shortest column (masonry)
+          let col = 0;
+          for (let c = 1; c < cols; c++) if (colH[c] < colH[col]) col = c;
+
+          const jx = (rand(i + 1) - 0.5) * colW * 0.18;  // gentle horizontal jitter
+          const jy = (rand(i + 9) - 0.5) * 26;           // vertical jitter
+          let x = col * colW + (colW - w) / 2 + jx;
+          x = Math.max(2, Math.min(W - w - 2, x));        // keep inside the container
+          const y = Math.max(0, colH[col] + jy);
+          const rot = (rand(i + 4) - 0.5) * 8;            // -4deg .. +4deg
+
+          snap.style.width = w + 'px';
+          snap.style.setProperty('--x', Math.round(x) + 'px');
+          snap.style.setProperty('--y', Math.round(y) + 'px');
+          snap.style.setProperty('--rot', rot.toFixed(2) + 'deg');
+          snap.style.transform = 'translate(var(--x), var(--y)) rotate(var(--rot))';
+          snap.style.zIndex = String(i + 1);
+
+          colH[col] = y + h - 40;                          // -40 => vertical overlap
+        });
+
+        photoGrid.style.height = (Math.max.apply(null, colH) + 40) + 'px';
+      }
+
+      // lay out once images know their size, and on resize
+      let pending = snaps.length;
+      snaps.forEach(function (snap) {
+        const img = snap.querySelector('img');
+        const done = function () { if (--pending <= 0) layout(); };
+        if (img.complete && img.naturalWidth) done();
+        else { img.addEventListener('load', done); img.addEventListener('error', done); }
+      });
+      let rt;
+      window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(layout, 150); });
+
+      /* ---- lightbox: click a photo to expand ---- */
+      const lb = document.createElement('div');
+      lb.className = 'lightbox';
+      lb.innerHTML = '<button class="lb-close" aria-label="Close">&times;</button>'
+        + '<button class="lb-nav lb-prev" aria-label="Previous">&#8249;</button>'
+        + '<button class="lb-nav lb-next" aria-label="Next">&#8250;</button>'
+        + '<figure><img alt="" /><figcaption></figcaption></figure>';
+      document.body.appendChild(lb);
+      const lbImg = lb.querySelector('img');
+      const lbCap = lb.querySelector('figcaption');
+      let current = 0;
+
+      function showAt(i) {
+        current = (i + photos.length) % photos.length;
+        const ph = photos[current];
+        lbImg.src = ph.src + '?v=' + PHOTO_V;
+        lbImg.alt = ph.caption || '';
+        lbCap.textContent = ph.caption || '';
+        lbCap.style.display = ph.caption ? '' : 'none';
+      }
+      function openLb(i) { showAt(i); lb.classList.add('open'); document.body.classList.add('lb-open'); }
+      function closeLb() { lb.classList.remove('open'); document.body.classList.remove('lb-open'); }
+
+      snaps.forEach(function (snap, i) {
+        snap.addEventListener('click', function () { openLb(i); });
+      });
+      lb.querySelector('.lb-close').addEventListener('click', closeLb);
+      lb.querySelector('.lb-prev').addEventListener('click', function (e) { e.stopPropagation(); showAt(current - 1); });
+      lb.querySelector('.lb-next').addEventListener('click', function (e) { e.stopPropagation(); showAt(current + 1); });
+      lb.addEventListener('click', function (e) { if (e.target === lb) closeLb(); });   // click backdrop closes
+      document.addEventListener('keydown', function (e) {
+        if (!lb.classList.contains('open')) return;
+        if (e.key === 'Escape') closeLb();
+        else if (e.key === 'ArrowLeft') showAt(current - 1);
+        else if (e.key === 'ArrowRight') showAt(current + 1);
+      });
+    } else {
+      photoGrid.outerHTML = '<div class="photo-empty">No photos yet — add image files to '
+        + '<code>media/photos/</code> and list them in the <code>PHOTOS</code> array in '
+        + '<code>projects.js</code>.</div>';
+    }
+
+    /* ---- hover / focus / touch preview behavior ---- */
+    const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function armCard(card) {
+      const video = card.querySelector('video');
+      const nameEl = card.querySelector('.name');
+      if (!video) return;
+
+      let isPointerOver = false;
+      let isFocused = false;
+      let touched = false;
+
+      const setPlaying = (flag) => {
+        card.classList.toggle('playing', flag);
+        if (nameEl) nameEl.setAttribute('aria-hidden', flag ? 'true' : 'false');
+      };
+      const tryPlay = () => {
+        if (!isReducedMotion && (isPointerOver || isFocused) && !document.hidden) {
+          video.play().catch(() => {});
+        }
+      };
+      const tryPause = () => { video.pause(); };
+
+      card.addEventListener('mouseenter', () => { isPointerOver = true;  tryPlay(); });
+      card.addEventListener('mouseleave', () => { isPointerOver = false; tryPause(); });
+      card.addEventListener('focus', () => { isFocused = true;  tryPlay(); });
+      card.addEventListener('blur',  () => { isFocused = false; tryPause(); });
+
+      // touch: first tap plays/pauses without navigating; tap again navigates
+      card.addEventListener('touchstart', (e) => {
+        touched = true;
+        e.preventDefault();
+        if (video.paused) video.play().catch(() => {}); else video.pause();
+      }, { passive: false });
+      card.addEventListener('click', (e) => { if (touched) { e.preventDefault(); touched = false; } });
+
+      const io = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) video.pause();
+          else if (isPointerOver || isFocused) video.play().catch(() => {});
+        }
+      }, { threshold: 0.25 });
+      io.observe(card);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) video.pause();
+        else if (isPointerOver || isFocused) video.play().catch(() => {});
+      });
+
+      video.addEventListener('playing', () => setPlaying(true));
+      video.addEventListener('pause',   () => setPlaying(false));
+      video.addEventListener('ended',   () => setPlaying(false));
+    }
+
+    document.querySelectorAll('.card').forEach(armCard);
+  </script>
+</body>
+</html>
