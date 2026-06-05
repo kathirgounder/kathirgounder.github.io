@@ -37,7 +37,7 @@
     </div>
   </footer>
 
-  <script src="projects.js"></script>
+  <script src="projects.js?v=2"></script>
   <script>
     function escapeHtml(s) {
       return String(s).replace(/[&<>"]/g, function (c) {
@@ -148,6 +148,50 @@
         layoutCluster();
         let crt;
         window.addEventListener('resize', function () { clearTimeout(crt); crt = setTimeout(layoutCluster, 150); });
+
+        // ---- make circles draggable (pointer events; mouse + touch) ----
+        let zTop = 30;
+        circleEls.forEach(function (b) {
+          let sx = 0, sy = 0, ox = 0, oy = 0, down = false;
+          b._dragged = false;
+
+          b.addEventListener('pointerdown', function (e) {
+            if (e.button && e.button !== 0) return;
+            down = true; b._dragged = false;
+            sx = e.clientX; sy = e.clientY;
+            ox = parseFloat(b.style.left) || 0;
+            oy = parseFloat(b.style.top) || 0;
+            b.setPointerCapture(e.pointerId);
+            b.style.zIndex = String(++zTop);
+          });
+
+          b.addEventListener('pointermove', function (e) {
+            if (!down) return;
+            const dx = e.clientX - sx, dy = e.clientY - sy;
+            if (!b._dragged && (Math.abs(dx) + Math.abs(dy)) > 5) {
+              b._dragged = true;
+              b.classList.add('dragging');
+            }
+            if (!b._dragged) return;
+            const W = cluster.clientWidth, d = b.offsetWidth;
+            const nl = Math.max(-d * 0.4, Math.min(W - d * 0.6, ox + dx)); // can nudge past edges
+            const nt = Math.max(0, oy + dy);
+            b.style.left = Math.round(nl) + 'px';
+            b.style.top = Math.round(nt) + 'px';
+          });
+
+          function release(e) {
+            if (!down) return;
+            down = false;
+            b.classList.remove('dragging');
+            try { b.releasePointerCapture(e.pointerId); } catch (_) {}
+            // grow the container if a circle was dragged below it
+            const bottom = (parseFloat(b.style.top) || 0) + b.offsetHeight + 4;
+            if (bottom > cluster.clientHeight) cluster.style.height = bottom + 'px';
+          }
+          b.addEventListener('pointerup', release);
+          b.addEventListener('pointercancel', release);
+        });
       }
 
       // ---- video lightbox for cluster bubbles ----
@@ -175,7 +219,10 @@
         function close() { lb.classList.remove('open'); document.body.classList.remove('lb-open'); lbVid.pause(); }
 
         mount.querySelectorAll('.vcluster .bubble').forEach(function (b) {
-          b.addEventListener('click', function () { open(parseInt(b.getAttribute('data-i'), 10)); });
+          b.addEventListener('click', function () {
+            if (b._dragged) { b._dragged = false; return; }   // it was a drag, not a tap
+            open(parseInt(b.getAttribute('data-i'), 10));
+          });
         });
         lb.querySelector('.lb-close').addEventListener('click', close);
         lb.querySelector('.lb-prev').addEventListener('click', function (e) { e.stopPropagation(); showAt(cur - 1); });

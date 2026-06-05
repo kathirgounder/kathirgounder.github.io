@@ -132,9 +132,10 @@ a { color: var(--blue-link); }
 }
 .cluster--lg { max-width: 560px; }   /* larger variant for the project page */
 
-/* project-page scatter: a bunch of overlapping circle videos, JS-positioned */
-.vcluster { position: relative; width: 100%; margin: 6px auto 0; }
-.vcluster .bubble { will-change: transform; }
+/* project-page scatter: a bunch of overlapping circle videos, JS-positioned + draggable */
+.vcluster { position: relative; width: 100%; margin: 6px auto 0; touch-action: pan-y; }
+.vcluster .bubble { will-change: transform, left, top; cursor: grab; touch-action: none; }
+.vcluster .bubble.dragging { cursor: grabbing; transition: none; }
 .bubble {
   position: absolute;
   aspect-ratio: 1 / 1;           /* always a circle, whatever the container shape */
