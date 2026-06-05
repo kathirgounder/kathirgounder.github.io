@@ -121,7 +121,7 @@
         + '      <video src="' + p.cardVideo + '" muted playsinline preload="metadata" loop aria-hidden="true"></video>'
         +        tag
         + '      <div class="name"><h3>' + p.title + '</h3><p>' + (p.subtitle || '') + '</p></div>'
-        + '      <div class="hint">Tap to play</div>'
+        + '      <div class="hint">Tap to open</div>'
         + '    </div>'
         + '  </a>'
         + '</li>';
@@ -241,6 +241,8 @@
     /* ---- hover / focus / touch preview behavior ---- */
     const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    const isTouch = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+
     function armCard(card) {
       const video = card.querySelector('video');
       const nameEl = card.querySelector('.name');
@@ -248,43 +250,36 @@
 
       let isPointerOver = false;
       let isFocused = false;
-      let touched = false;
+      let inView = false;
 
       const setPlaying = (flag) => {
         card.classList.toggle('playing', flag);
         if (nameEl) nameEl.setAttribute('aria-hidden', flag ? 'true' : 'false');
       };
+      // on touch, previews play while in view; on desktop, on hover/focus.
+      const wantPlay = () => isTouch ? inView : (isPointerOver || isFocused);
       const tryPlay = () => {
-        if (!isReducedMotion && (isPointerOver || isFocused) && !document.hidden) {
-          video.play().catch(() => {});
-        }
+        if (!isReducedMotion && !document.hidden && wantPlay()) video.play().catch(() => {});
       };
       const tryPause = () => { video.pause(); };
 
+      // desktop hover / keyboard focus
       card.addEventListener('mouseenter', () => { isPointerOver = true;  tryPlay(); });
       card.addEventListener('mouseleave', () => { isPointerOver = false; tryPause(); });
       card.addEventListener('focus', () => { isFocused = true;  tryPlay(); });
       card.addEventListener('blur',  () => { isFocused = false; tryPause(); });
-
-      // touch: first tap plays/pauses without navigating; tap again navigates
-      card.addEventListener('touchstart', (e) => {
-        touched = true;
-        e.preventDefault();
-        if (video.paused) video.play().catch(() => {}); else video.pause();
-      }, { passive: false });
-      card.addEventListener('click', (e) => { if (touched) { e.preventDefault(); touched = false; } });
+      // NOTE: no touch handlers — taps fall through so the card link navigates.
 
       const io = new IntersectionObserver((entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting) video.pause();
-          else if (isPointerOver || isFocused) video.play().catch(() => {});
+          inView = entry.isIntersecting;
+          if (!inView) tryPause(); else tryPlay();
         }
       }, { threshold: 0.25 });
       io.observe(card);
 
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) video.pause();
-        else if (isPointerOver || isFocused) video.play().catch(() => {});
+        if (document.hidden) video.pause(); else tryPlay();
       });
 
       video.addEventListener('playing', () => setPlaying(true));

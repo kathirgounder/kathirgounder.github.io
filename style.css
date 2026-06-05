@@ -361,12 +361,25 @@ body.lb-open { overflow: hidden; }
 .footer-bar a { color: #fff; }
 .footer-bar .small { font-size: 12px; opacity: .85; }
 
+/* kill the misaligned grey tap-highlight box on iOS for interactive elements */
+a, button, .card, .bubble, .snap, .btn { -webkit-tap-highlight-color: transparent; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 820px) {
   .hero { grid-template-columns: 1fr; }
   .def-grid { grid-template-columns: 1fr; }
-  .nav { flex-wrap: wrap; gap: 14px; padding: 14px 18px; }
   .wrap { padding: 0 18px; }
+
+  /* nav: brand + buttons on row 1, nav links full-width on row 2 */
+  .nav { flex-wrap: wrap; gap: 12px 14px; padding: 14px 18px; }
+  .nav .spacer { display: none; }
+  .nav .brand { order: 1; }
+  .nav .btn.ghost { order: 2; margin-left: auto; }
+  .nav .btn.solid { order: 3; }
+  .nav .links {
+    order: 4; width: 100%;
+    justify-content: flex-start; flex-wrap: wrap; gap: 12px 20px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
