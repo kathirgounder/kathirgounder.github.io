@@ -79,9 +79,9 @@ const PROJECTS = [
   {
     id: "burn-surge",
     title: "Burn Surge Ops",
-    subtitle: "Custom WebGL Layer",
-    tag: "WebGL",
-    date: "2025",
+    subtitle: "Surge planning for burn mass-casualty events · GIS + WebGL",
+    tag: "GIS / WebGL",
+    date: "2025 · Esri Weekend of Innovation",
     cardVideo: "media/finalBurnSurgeOperations.mp4",
     links: {
       github: "https://github.com/kathirgounder/BurnSurgeOperations",
@@ -92,11 +92,26 @@ const PROJECTS = [
       { src: "media/finalBurnSurgeOperations.mp4", caption: "Final render of the Burn Surge operations layer." }
     ],
     body: [
-      { p: "Short summary of what this project is and the problem it solves. Replace this text with your own write-up." },
-      { h: "What we built" },
-      { p: "Describe the approach: the custom WebGL layer, how data flowed in, and anything notable about the implementation." },
+      { p: "Burn injuries are the most painful and heinous injuries we can receive, and unfortunately they usually happen in large amounts all at once. Burn units are extremely expensive to staff and operate — there's usually only one or two for the whole state, and nationwide there are only about <strong>300 burn surgeons and 300 burn nurses</strong>. An enormous amount of specialized infrastructure and staff is needed just to stabilize a single burn patient." },
+      { p: "So burn units have to plan with and train regional hospitals to be able to ramp up during a massive burn-casualty event — building enough capacity to support a burn patient for the first 24 hours, so the burn unit can focus on the most severe patients, stabilize them, and fly them out to the nearest open burn center. Training with regional hospitals is extremely expensive: burn-unit staff are highly paid pros, you bring medical staff in on their off days paying overtime, and you pay for infrastructure and supplies that have expiry dates and will probably never be used." },
+      { p: "It truly is a hard resource-allocation problem, and burn units currently take a very naive approach — just going down an arbitrary list of thousands of hospitals running very general drills. It's ineffective and inefficient. We brought GIS into the mix, focusing on Southern California (Orange, Los Angeles, Riverside, and San Bernardino counties), to incorporate geographic and historical knowledge and turn that scarce training time into specific, high-impact directives." },
+      { p: "LA County is also pioneering the <strong>Burn Resource Center Program</strong>, where non-specialized hospitals contract with the county for extra funding, training, tools, and equipment — in exchange for maintaining the ability to staff a burn patient for 72 hours by keeping up continuing education, accreditation, and audits. Burn Surge Ops is built to support exactly this kind of planning and accreditation work." },
+
+      { h: "What it does" },
+      { p: "Users pick from prebuilt mass-casualty scenarios, choose which hospitals to include in the routing analysis (to simulate hospitals being unavailable due to disaster or evacuation), and run a routing analysis driven by a custom cost function. It matches and scores patient&rarr;hospital routes on drive time plus attributes like total burn surface area, hospital capability, pediatric capability, bed-count score, and patient criticality — then surfaces the <strong>top three hospital assignments</strong> with their scores." },
+      { p: "You can toggle drive-time service areas from the incident, and a layer of general (non-burn-ready) hospitals, to spot facilities that are good candidates to convert into Burn Resource Centers. An LLM-backed report generator then produces an action plan with concrete directives — for example, a hospital that has faced evacuations in the past should rehearse a route to a farther-away center in case of an unexpected evacuation order. The point is to make split-second, multi-factor decisions ahead of time, and to drive monthly drills and outreach." },
+
+      { h: "How we built it" },
+      { p: "The map and analysis run on the <strong>ArcGIS Maps SDK for JavaScript</strong>, including a <strong>custom WebGL layer view</strong> (the animation on the card) for the incident and route visualization, plus service-area analysis using Network Analyst methods and Service Area rings — the same GIS tooling found in ArcGIS Pro. A <strong>FastAPI</strong> backend wires up the LLM report generator." },
+
+      { h: "What I'm proud of & what's next" },
+      { p: "The part we're proudest of is the custom weighting in the scoring system and how it shifts routes between adult and pediatric scenarios. Next, we want to work with professionals in the burn-response community to refine those weights, and get these maps into the hands of Southern California EMS to aid evacuation transfers and accreditation upskilling — especially after the devastating 2025 fires." },
+
       { h: "Tech" },
-      { p: "List the stack here — e.g. <code>WebGL</code>, <code>deck.gl</code>, <code>Mapbox</code>, custom shaders." }
+      { p: "<code>ArcGIS Maps SDK for JavaScript</code>, custom <code>WebGL</code> layer views, Network Analyst / Service Area analysis, <code>FastAPI</code>, and an LLM report generator." },
+
+      { h: "Team" },
+      { p: "Built at <strong>Esri's Weekend of Innovation 2025</strong> with Angelica Cardenas, Albert Wang, Alex Kim, and Grace Payne." }
     ]
   }
 ];
