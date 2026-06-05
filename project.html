@@ -81,14 +81,15 @@
       // media: either an overlapping play-all cluster, or a stacked list
       let media = '';
       if (isCluster) {
-        const bubbles = vids.slice(0, 4).map(function (v, i) {
-          return '<button class="bubble b' + (i + 1) + '" data-i="' + i + '" title="' + escapeHtml(v.label || '') + '" aria-label="' + escapeHtml(v.label || 'Video') + '">'
+        const circles = vids.map(function (v, i) {
+          return '<button class="bubble' + (v.splat ? '' : ' pc') + '" data-i="' + i + '"' + (v.splat ? ' data-splat="1"' : '')
+            + ' title="' + escapeHtml(v.label || '') + '" aria-label="' + escapeHtml(v.label || 'Video') + '">'
             + '<video src="' + (v.card || v.src) + '" muted playsinline loop autoplay></video>'
             + '<span class="bubble-label">' + escapeHtml(v.label || '') + '</span>'
             + '</button>';
         }).join('');
-        media = '<div class="cluster-wrap"><div class="cluster cluster--lg">' + bubbles + '</div>'
-          + '<p class="cluster-legend">All playing at once — click any to watch full-size.</p></div>';
+        media = '<div class="vcluster" id="vcluster">' + circles + '</div>'
+          + '<p class="cluster-legend">All playing at once — click any to watch full-size.</p>';
       } else {
         media = vids.map(function (v) {
           return '<figure>'
@@ -106,6 +107,48 @@
         + (linkBtns ? '<div class="links">' + linkBtns + '</div>' : '')
         + media
         + '<div class="body">' + body + '</div>';
+
+      // ---- scatter the cluster: overlapping point-cloud circles, splat below ----
+      if (isCluster) {
+        const cluster = document.getElementById('vcluster');
+        const circleEls = Array.prototype.slice.call(cluster.querySelectorAll('.bubble'));
+        const pcs = circleEls.filter(function (b) { return !b.hasAttribute('data-splat'); });
+        const splat = circleEls.filter(function (b) { return b.hasAttribute('data-splat'); })[0];
+        function rnd(s) { const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+        function layoutCluster() {
+          const W = cluster.clientWidth;
+          const n = pcs.length;
+          const d = Math.round(W * (n >= 5 ? 0.32 : (n >= 4 ? 0.36 : 0.42)));
+          const step = n > 1 ? (W - d) / (n - 1) : 0;
+          const amp = d * 0.16;                              // vertical zig-zag
+          const startX = (W - (d + (n - 1) * step)) / 2;
+          let bottom = 0;
+          pcs.forEach(function (b, i) {
+            const jx = (rnd(i + 1) - 0.5) * step * 0.22;
+            const jy = (rnd(i + 5) - 0.5) * amp * 0.6;
+            const x = Math.max(0, Math.min(W - d, startX + i * step + jx));
+            const y = Math.max(0, amp + (i % 2 ? amp : -amp) + jy);
+            b.style.width = d + 'px';
+            b.style.left = Math.round(x) + 'px';
+            b.style.top = Math.round(y) + 'px';
+            b.style.zIndex = String(10 + i);
+            bottom = Math.max(bottom, y + d);
+          });
+          if (splat) {                                        // its own circle, centered below with a gap
+            const sd = Math.round(d * 1.04);
+            splat.style.width = sd + 'px';
+            splat.style.left = Math.round((W - sd) / 2) + 'px';
+            splat.style.top = Math.round(bottom + d * 0.16) + 'px';
+            splat.style.zIndex = '6';
+            bottom = bottom + d * 0.16 + sd;
+          }
+          cluster.style.height = Math.round(bottom + 4) + 'px';
+        }
+        layoutCluster();
+        let crt;
+        window.addEventListener('resize', function () { clearTimeout(crt); crt = setTimeout(layoutCluster, 150); });
+      }
 
       // ---- video lightbox for cluster bubbles ----
       if (isCluster) {
@@ -131,7 +174,7 @@
         function open(i) { showAt(i); lb.classList.add('open'); document.body.classList.add('lb-open'); }
         function close() { lb.classList.remove('open'); document.body.classList.remove('lb-open'); lbVid.pause(); }
 
-        mount.querySelectorAll('.cluster .bubble').forEach(function (b) {
+        mount.querySelectorAll('.vcluster .bubble').forEach(function (b) {
           b.addEventListener('click', function () { open(parseInt(b.getAttribute('data-i'), 10)); });
         });
         lb.querySelector('.lb-close').addEventListener('click', close);

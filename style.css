@@ -131,6 +131,10 @@ a { color: var(--blue-link); }
   margin: 0 auto;
 }
 .cluster--lg { max-width: 560px; }   /* larger variant for the project page */
+
+/* project-page scatter: a bunch of overlapping circle videos, JS-positioned */
+.vcluster { position: relative; width: 100%; margin: 6px auto 0; }
+.vcluster .bubble { will-change: transform; }
 .bubble {
   position: absolute;
   aspect-ratio: 1 / 1;           /* always a circle, whatever the container shape */
@@ -149,11 +153,9 @@ a { color: var(--blue-link); }
   object-fit: cover; display: block;
   filter: saturate(1.04) contrast(1.03);
 }
-/* point-cloud clips have a screen-record bar at the bottom — zoom from the top
-   so the lower ~10% is clipped by the circle (the splat, b4, is left untouched) */
-.bubble.b1 video,
-.bubble.b2 video,
-.bubble.b3 video {
+/* point-cloud clips (.pc) have a screen-record bar at the bottom — zoom from the
+   top so the lower ~10% is clipped by the circle (the splat is left untouched) */
+.bubble.pc video {
   transform: scale(1.11);
   transform-origin: top center;
 }

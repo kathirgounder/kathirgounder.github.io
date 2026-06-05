@@ -35,10 +35,11 @@ const PROJECTS = [
       live: ""
     },
     videos: [
-      { src: "media/thanjavur.mp4",    card: "media/thanjavur-card.mp4",    label: "Thanjavur",      caption: "Brihadeeswarar (Thanjavur) temple — dense reconstruction fly-through." },
-      { src: "media/sacrecoeur.mp4",   card: "media/sacrecoeur-card.mp4",   label: "Sacré-Cœur",     caption: "Sacré-Cœur basilica, Paris." },
-      { src: "media/brussels.mp4",     card: "media/brussels-card.mp4",     label: "Brussels",       caption: "Grand-Place, Brussels." },
-      { src: "media/templesplat.mp4",  card: "media/templesplat-card.mp4",  label: "Gaussian Splat", caption: "Gaussian splat of the Thanjavur temple." }
+      { src: "media/thanjavur.mp4",    card: "media/thanjavur-card.mp4",    label: "Thanjavur",          caption: "Brihadeeswarar (Thanjavur) temple — dense reconstruction fly-through." },
+      { src: "media/sacrecoeur.mp4",   card: "media/sacrecoeur-card.mp4",   label: "Sacré-Cœur",         caption: "Sacré-Cœur basilica, Paris." },
+      { src: "media/brussels.mp4",     card: "media/brussels-card.mp4",     label: "Brussels",           caption: "Grand-Place, Brussels." },
+      { src: "media/palace.mp4",       card: "media/palace-card.mp4",       label: "Palace of Fine Arts", caption: "Palace of Fine Arts, San Francisco." },
+      { src: "media/templesplat.mp4",  card: "media/templesplat-card.mp4",  label: "Gaussian Splat", splat: true, caption: "Gaussian splat of the Thanjavur temple." }
     ],
     body: [
       { p: "A set of end-to-end 3D reconstructions built with <a href='https://github.com/borglab/gtsfm' target='_blank' rel='noopener'>GTSFM</a> (Georgia Tech Structure-from-Motion) — camera poses and point clouds recovered from photographs, with bundle adjustment and pose-graph optimization running on <code>GTSAM</code>'s factor-graph backend. Replace this intro with your own framing." },
