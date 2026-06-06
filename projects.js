@@ -70,7 +70,7 @@ const PROJECTS = [
     body: [
       { p: "A liquid-simulation reveal effect layered over a map." },
       { h: "What we built" },
-      { p: " I was inspired by the noir movie Chinatown, the California Water Wars, and all the cool map based storytelling I had been exposed to at ESRI. I came up with this idea of the User uncovering a map at the bottom of the ocean while diving, it's essentially a Navier Stokes Fluid Simulation running over an image where the image pixel colors are treated as dye in the liquid" },
+      { p: " I was inspired by the noir movie Chinatown, the California Water Wars, and all the cool map based storytelling I had been exposed to at ESRI. I came up with this idea of the User uncovering a map at the bottom of the ocean while diving, it's essentially a Navier Stokes Fluid Simulation running over an image where the image pixel colors are treated as dye in the liquid."},
       { h: "Tech" },
       { p: "JS, WebGL" }
     ]
