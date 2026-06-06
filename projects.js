@@ -42,9 +42,9 @@ const PROJECTS = [
       { src: "media/templesplat.mp4",  card: "media/templesplat-card.mp4",  label: "Gaussian Splat", splat: true, caption: "Gaussian splat of the Thanjavur temple." }
     ],
     body: [
-      { p: "A set of end-to-end 3D reconstructions built with <a href='https://github.com/borglab/gtsfm' target='_blank' rel='noopener'>GTSFM</a> (Georgia Tech Structure-from-Motion) — camera poses and point clouds recovered from photographs, with bundle adjustment and pose-graph optimization running on <code>GTSAM</code>'s factor-graph backend. Replace this intro with your own framing." },
+      { p: "A set of end-to-end 3D reconstructions built with <a href='https://github.com/borglab/gtsfm' target='_blank' rel='noopener'>GTSFM</a> (Georgia Tech Structure-from-Motion) — camera poses and point clouds recovered from photographs, with bundle adjustment and pose-graph optimization running on <code>GTSAM</code>'s factor-graph backend" },
       { h: "Scenes" },
-      { p: "<strong>Thanjavur</strong> — the Brihadeeswarar temple in Tamil Nadu. <strong>Sacré-Cœur</strong> — a classic photo-tourism scene in Paris. <strong>Brussels</strong> — the Grand-Place. For each, note the image count, the front-end matcher, and the reprojection error." },
+      { p: "<strong>Thanjavur</strong> — the Brihadeeswarar temple in Tamil Nadu. <strong>Sacré-Cœur</strong> — a classic photo-tourism scene in Paris. <strong>Brussels</strong> — the Grand-Place." },
       { h: "Pipeline" },
       { p: "Front-end correspondences feed global pose estimation and bundle adjustment built on <code>GTSAM</code> factor graphs. Add detail on the matcher, densification, and any meshing step. Drop in more scenes via the <code>videos</code> array in <code>projects.js</code>." },
       { h: "Tech" },
