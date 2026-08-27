@@ -1,0 +1,163 @@
+/* ==========================================================================
+   Deck theme — direct translation of kathirgounder.github.io/style.css tokens
+   ========================================================================== */
+:root {
+  --bg:        #f3f0ea;   /* warm cream paper */
+  --bg-band:   #ddd7ca;   /* tan band */
+  --panel:     #ece8df;   /* raised panel */
+  --ink:       #2b2b2b;   /* body text */
+  --ink-soft:  #6b665c;   /* muted text */
+  --orange:    #df8a3a;   /* primary accent */
+  --orange-hi: #f3cf94;   /* highlight chip */
+  --blue:      #3f6ad8;   /* secondary accent */
+  --line:      #c9c3b6;   /* hairline rules */
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --serif: 'Spectral', Georgia, 'Times New Roman', serif;
+  --dash: 2px dashed var(--orange);
+  --radius: 4px;
+}
+
+/* ---------- base ---------- */
+.reveal-viewport { background: var(--bg); }
+.reveal {
+  font-family: var(--mono);
+  color: var(--ink);
+  font-size: 26px;
+  line-height: 1.5;
+}
+.reveal .slides section { text-align: left; }
+
+/* ---------- type ---------- */
+.reveal h1, .reveal h2, .reveal h3 {
+  font-family: var(--serif);
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.18;
+  margin-bottom: 24px;
+}
+.reveal h1 { font-size: 2.2em; font-weight: 700; }
+.reveal h2 { font-size: 1.55em; font-weight: 700; }
+.reveal h3 { font-size: 1.0em;  font-weight: 600; color: var(--orange); }
+
+.kicker {
+  font-family: var(--mono);
+  font-size: 0.55em;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+}
+.subtitle   { color: var(--ink-soft); font-size: 0.8em; }
+.mono-small { font-family: var(--mono); font-size: 0.55em; letter-spacing: .5px; color: var(--ink-soft); }
+.caption    { font-family: var(--serif); font-style: italic; font-size: 0.65em; color: var(--ink-soft); margin-top: 14px; }
+
+.hl { background: var(--orange-hi); border-radius: var(--radius); padding: 0 6px; }
+
+hr.dash { border: none; border-top: var(--dash); width: 180px; margin: 26px 0 18px; }
+
+/* ---------- lists ---------- */
+.reveal ul { margin-left: 0.2em; }
+.reveal li { margin-bottom: 12px; }
+.reveal li::marker { color: var(--orange); }
+
+/* ---------- dictionary-definition motif (from site's .def block) ---------- */
+.def-slide .word {
+  font-family: var(--serif);
+  font-size: 1.7em;
+  font-weight: 700;
+  color: var(--orange);
+  margin-bottom: 6px;
+}
+.def-slide .word em { font-style: italic; font-weight: 400; }
+.def-slide .meaning {
+  font-family: var(--serif);
+  font-size: 0.95em;
+  max-width: 26em;
+}
+
+/* ---------- big-statement slides ---------- */
+.statement h2 { font-size: 1.4em; line-height: 1.4; }
+
+/* ---------- two-column panels ---------- */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 26px;
+  font-size: 0.78em;
+}
+.panel h3 { margin-bottom: 10px; }
+
+/* ---------- stat rows (results slides) ---------- */
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 34px; }
+.stat { border-top: var(--dash); padding-top: 16px; }
+.stat .num {
+  display: block;
+  font-family: var(--serif);
+  font-size: 1.9em;
+  font-weight: 700;
+  color: var(--orange);
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.stat .lbl { font-size: 0.55em; letter-spacing: .5px; color: var(--ink-soft); }
+
+/* ---------- video cards (from site's .bubble / .card treatment) ---------- */
+.video-card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #14100a;
+  margin-top: 8px;
+}
+.video-card video { display: block; width: 100%; height: auto; }
+.video-card .bubble-label {
+  position: absolute; inset: auto 0 0 0;
+  padding: 14px 16px 10px;
+  font-family: var(--mono);
+  font-size: 0.5em;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #e9e2d4;
+  background: linear-gradient(to top, rgba(20,16,10,.8), rgba(20,16,10,0));
+}
+
+/* placeholder state until real mp4s are dropped in */
+.video-card.placeholder {
+  aspect-ratio: 16 / 7;
+  background: var(--panel);
+  border: var(--dash);
+  display: flex; align-items: center; justify-content: center;
+}
+.video-card.placeholder span {
+  font-size: 0.55em;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 0 40px;
+}
+
+/* ---------- reveal chrome ---------- */
+.reveal .progress { color: var(--orange); height: 4px; }
+
+/* ---------- image pairs (results/qualitative slides) ---------- */
+.img-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.img-pair figure { margin: 0; }
+.img-pair img {
+  width: 100%; height: 220px; object-fit: cover;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: #fff;
+}
+.img-pair.tall img { height: 400px; object-fit: contain; background: #f7f5f0; }
+.img-pair figcaption {
+  font-family: var(--mono); font-size: 0.5em; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--ink-soft); margin-top: 6px;
+}
+
+/* ---------- stacked stats beside imagery ---------- */
+.stat-col { display: flex; flex-direction: column; gap: 22px; }
+.stat-col .stat { border-top: var(--dash); padding-top: 12px; }
