@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hierarchical SfM Scales Feedforward Reconstruction, Kathir Gounder</title>
+
+  <link rel="stylesheet" href="vendor/reveal.min.css">
+  <!-- Fonts matching kathirgounder.github.io -->
+  <link rel="stylesheet" href="vendor/fonts.css">
+  <link rel="stylesheet" href="theme.css">
+  <style>
+    /* backup-slide tables */
+    table.bk { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace;
+               font-size: 0.44em; line-height: 1.55; }
+    table.bk th { text-align: left; border-bottom: 2px solid currentColor; padding: 0.25em 0.6em;
+                  font-weight: 700; }
+    table.bk td { padding: 0.18em 0.6em; border-bottom: 1px solid rgba(128,128,128,0.25); }
+    table.bk td.n { text-align: right; }
+    table.bk .win { font-weight: 700; }
+    .bk-note { font-size: 0.5em; opacity: 0.75; margin-top: 0.8em; }
+  </style>
+</head>
+<body>
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ============ 1 · TITLE (0:30) ============ -->
+    <section>
+      <p class="kicker">ECCV 2026 · Structure-from-Motion Workshop (SFM-DL) · Malmö</p>
+      <h1>Hierarchical Structure-from-Motion<br>Scales Feedforward Reconstruction</h1>
+      <p class="subtitle">Kathir Gounder · The Borg Lab, Georgia Tech</p>
+    </section>
+
+    <!-- ============ 2 · WHOAMI (0:30) ============ -->
+    <section>
+      <p class="kicker">whoami</p>
+      <div style="display:flex; align-items:center; gap:2.2em;">
+        <img src="videos/profile.jpg" alt="Kathir Gounder"
+             style="width:190px; height:190px; object-fit:cover; border-radius:10px;">
+        <div>
+          <h2 style="margin-top:0;">Kathir Gounder</h2>
+          <ul>
+            <li>MS CS @ Georgia Tech, The Borg Lab (Dr. Frank Dellaert)</li>
+            <li>Contributor to <span class="hl">GTSAM</span> (factor-graph optimization, 4k+ ★)</li>
+            <li>Maintainer of <span class="hl">GTSFM</span> (global SfM pipeline, 500+ ★)</li>
+            <li>First author, <span class="hl">ECCV 2026 SFM-DL</span> (this talk)</li>
+            <li>SWE intern @ Esri</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 3a · DEFINITION / PHOTOS → MODEL (1:15) ============ -->
+    <section>
+      <p class="kicker">the problem</p>
+      <h2>Structure from Motion</h2>
+      <p style="font-size:0.68em; opacity:0.9;">Recovering camera poses and 3D scene
+        geometry from an unordered collection of 2D photographs.
+        No GPS, no calibration, no ordering.</p>
+      <div style="display:flex; gap:1em; align-items:center; margin-top:0.6em;">
+        <div style="flex:1; min-width:0;">
+          <img src="videos/thanjavur_collage.jpg" alt="unordered internet photos"
+               style="width:100%; border-radius:8px;">
+          <p class="caption" style="text-align:center;">256 internet photos, unordered</p>
+        </div>
+        <div style="font-size:2em; opacity:0.6;">→</div>
+        <div style="flex:1; min-width:0;">
+          <video src="videos/thanjavur_recon.mp4" muted loop data-autoplay playsinline
+                 style="width:100%; border-radius:8px;"></video>
+          <p class="caption" style="text-align:center;">Brihadeeswarar Temple, reconstructed</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 4a · CLASSICAL SFM PRIMER (1:30) ============ -->
+    <section>
+      <p class="kicker">background · classical SfM in one slide</p>
+      <h2>Incremental vs. global</h2>
+      <div class="two-col" style="font-size:0.6em;">
+        <div class="panel">
+          <h3>Incremental (COLMAP)</h3>
+          <p>Find a good first pair, triangulate, then one image at a time:
+             register → triangulate → bundle adjust → remove outliers, repeat.
+             Robust because outliers are filtered at <span class="hl">every step</span>;
+             slow because it is <span class="hl">serial by construction</span>.</p>
+        </div>
+        <div class="panel">
+          <h3>Global (GLOMAP, GTSFM)</h3>
+          <p>Match all retrieved pairs up front → two-view poses form a view graph →
+             rotation averaging, then global positioning solves <span class="hl">all
+             cameras and points at once</span> → one global BA. Parallel-friendly;
+             but outliers must be rejected <span class="hl">globally</span>, and a single
+             false positive can degrade the solution.</p>
+        </div>
+      </div>
+      <!-- Drop the GTSFM Fig.2 export at img/gtsfm_pipeline.png to replace the HTML flow. -->
+      <img src="img/gtsfm_pipeline.png" alt="global SfM stages"
+           style="width:88%; max-height:210px; object-fit:contain; border-radius:8px; margin-top:1.5em;"
+           onerror="this.style.display='none'; document.getElementById('gsfFallback').style.display='flex';">
+      <div id="gsfFallback" style="display:none; align-items:center; justify-content:center; gap:0.4em;
+                  font-family:'JetBrains Mono',monospace; font-size:0.4em; margin-top:1.6em; flex-wrap:wrap;">
+        <div style="border:1.5px solid rgba(128,128,128,0.7); border-radius:8px; padding:0.7em;">Retrieval ⚡</div>
+        <div style="opacity:0.6;">→</div>
+        <div style="border:1.5px solid rgba(128,128,128,0.7); border-radius:8px; padding:0.7em;">Correspondence<br>generation ⚡</div>
+        <div style="opacity:0.6;">→</div>
+        <div style="border:1.5px solid rgba(128,128,128,0.7); border-radius:8px; padding:0.7em;">Two-view<br>estimation ⚡</div>
+        <div style="opacity:0.6;">‖</div>
+        <div style="border:1.5px solid rgba(128,128,128,0.7); border-radius:8px; padding:0.7em;">Pose<br>averaging</div>
+        <div style="opacity:0.6;">‖</div>
+        <div style="border:1.5px solid rgba(128,128,128,0.7); border-radius:8px; padding:0.7em;">Data<br>association ⚡</div>
+        <div style="opacity:0.6;">‖</div>
+        <div style="border:1.5px solid rgba(128,128,128,0.7); border-radius:8px; padding:0.7em;">Global BA</div>
+      </div>
+      <p class="caption" style="font-size:0.42em;">Global SfM stages (GTSFM, our lab's
+        distributed framework and the predecessor of this work). ⚡ parallel and
+        distributed; ‖ bottleneck: all parallel tasks must finish before the next stage.</p>
+    </section>
+
+    <!-- ============ 3c · FACTOR GRAPH: SFM VS VIO (1:00) ============ -->
+    <section>
+      <p class="kicker">background · in factor graph language</p>
+      <h2>Bundle adjustment vs. the VIO you know</h2>
+      <svg viewBox="0 0 940 265" style="width:100%; max-height:330px;">
+        <line x1="65" y1="60" x2="120" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="88.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="175" y1="60" x2="120" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="143.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="175" y1="60" x2="230" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="198.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="285" y1="60" x2="230" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="253.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="285" y1="60" x2="340" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="308.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="395" y1="60" x2="340" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="363.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="65" y1="60" x2="230" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="143.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="395" y1="60" x2="230" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="308.5" y="131.0" width="8" height="8" fill="#333"/>
+        <circle cx="65" cy="60" r="16" fill="#4a7db5"/>
+        <text x="65" y="64" text-anchor="middle" fill="#fff" font-size="12" font-family="JetBrains Mono">x1</text>
+        <circle cx="175" cy="60" r="16" fill="#4a7db5"/>
+        <text x="175" y="64" text-anchor="middle" fill="#fff" font-size="12" font-family="JetBrains Mono">x2</text>
+        <circle cx="285" cy="60" r="16" fill="#4a7db5"/>
+        <text x="285" y="64" text-anchor="middle" fill="#fff" font-size="12" font-family="JetBrains Mono">x3</text>
+        <circle cx="395" cy="60" r="16" fill="#4a7db5"/>
+        <text x="395" y="64" text-anchor="middle" fill="#fff" font-size="12" font-family="JetBrains Mono">x4</text>
+        <circle cx="120" cy="210" r="12" fill="#8a7a5c"/>
+        <text x="120" y="214" text-anchor="middle" fill="#fff" font-size="10" font-family="JetBrains Mono">l1</text>
+        <circle cx="230" cy="210" r="12" fill="#8a7a5c"/>
+        <text x="230" y="214" text-anchor="middle" fill="#fff" font-size="10" font-family="JetBrains Mono">l2</text>
+        <circle cx="340" cy="210" r="12" fill="#8a7a5c"/>
+        <text x="340" y="214" text-anchor="middle" fill="#fff" font-size="10" font-family="JetBrains Mono">l3</text>
+        <line x1="545" y1="60" x2="600" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="568.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="655" y1="60" x2="600" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="623.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="655" y1="60" x2="710" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="678.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="765" y1="60" x2="710" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="733.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="765" y1="60" x2="820" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="788.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="875" y1="60" x2="820" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="843.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="545" y1="60" x2="710" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="623.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="875" y1="60" x2="710" y2="210" stroke="rgba(128,128,128,0.5)" stroke-width="1.5"/>
+        <rect x="788.5" y="131.0" width="8" height="8" fill="#333"/>
+        <line x1="561" y1="60" x2="639" y2="60" stroke="#b55b4a" stroke-width="2.5" stroke-dasharray="6,5"/>
+        <rect x="595.0" y="55" width="10" height="10" fill="#b55b4a"/>
+        <line x1="671" y1="60" x2="749" y2="60" stroke="#b55b4a" stroke-width="2.5" stroke-dasharray="6,5"/>
+        <rect x="705.0" y="55" width="10" height="10" fill="#b55b4a"/>
+        <line x1="781" y1="60" x2="859" y2="60" stroke="#b55b4a" stroke-width="2.5" stroke-dasharray="6,5"/>
+        <rect x="815.0" y="55" width="10" height="10" fill="#b55b4a"/>
+        <line x1="545" y1="44" x2="545" y2="22" stroke="#b55b4a" stroke-width="2.5" stroke-dasharray="6,5"/>
+        <rect x="540" y="12" width="10" height="10" fill="#b55b4a"/>
+        <circle cx="545" cy="60" r="16" fill="#4a7db5"/>
+        <text x="545" y="64" text-anchor="middle" fill="#fff" font-size="12" font-family="JetBrains Mono">x1</text>
+        <circle cx="655" cy="60" r="16" fill="#4a7db5"/>
+        <text x="655" y="64" text-anchor="middle" fill="#fff" font-size="12" font-family="JetBrains Mono">x2</text>
+        <circle cx="765" cy="60" r="16" fill="#4a7db5"/>
+        <text x="765" y="64" text-anchor="middle" fill="#fff" font-size="12" font-family="JetBrains Mono">x3</text>
+        <circle cx="875" cy="60" r="16" fill="#4a7db5"/>
+        <text x="875" y="64" text-anchor="middle" fill="#fff" font-size="12" font-family="JetBrains Mono">x4</text>
+        <circle cx="600" cy="210" r="12" fill="#8a7a5c"/>
+        <text x="600" y="214" text-anchor="middle" fill="#fff" font-size="10" font-family="JetBrains Mono">l1</text>
+        <circle cx="710" cy="210" r="12" fill="#8a7a5c"/>
+        <text x="710" y="214" text-anchor="middle" fill="#fff" font-size="10" font-family="JetBrains Mono">l2</text>
+        <circle cx="820" cy="210" r="12" fill="#8a7a5c"/>
+        <text x="820" y="214" text-anchor="middle" fill="#fff" font-size="10" font-family="JetBrains Mono">l3</text>
+        <text x="230" y="255" text-anchor="middle" font-size="14" font-family="JetBrains Mono" fill="currentColor" opacity="0.8">Structure from Motion (bundle adjustment)</text>
+        <text x="710" y="255" text-anchor="middle" font-size="14" font-family="JetBrains Mono" fill="currentColor" opacity="0.8">Visual-Inertial Odometry</text>
+      </svg>
+      <p class="caption">Cameras x, landmarks l, black squares are projection factors.
+        VIO adds dashed odometry and prior factors chaining consecutive cameras.
+        SfM has no such chain: the images are unordered, so every constraint
+        flows through the landmarks.</p>
+    </section>
+
+    <!-- ============ 3b · IT GENERALIZES (0:45) ============ -->
+    <section>
+      <p class="kicker">the problem · same pipeline, any scene</p>
+      <div style="display:flex; gap:0.8em; margin-top:0.4em;">
+        <div style="flex:1; min-width:0;">
+          <img src="videos/sacre_strip.jpg" style="width:100%; border-radius:6px; margin-bottom:0.3em;">
+          <video src="videos/sacrecoeur.mp4" muted loop data-autoplay playsinline
+                 style="width:100%; border-radius:8px;"></video>
+          <p class="caption" style="text-align:center;">Sacré-Cœur, Paris</p>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <img src="videos/brussels_strip.jpg" style="width:100%; border-radius:6px; margin-bottom:0.3em;">
+          <video src="videos/recon_intro.mp4" muted loop data-autoplay playsinline
+                 style="width:100%; border-radius:8px;"></video>
+          <p class="caption" style="text-align:center;">Grand Place, Brussels</p>
+        </div>
+        <div style="flex:1; min-width:0;">
+          <img src="videos/palace_strip.jpg" style="width:100%; border-radius:6px; margin-bottom:0.3em;">
+          <video src="videos/palace.mp4" muted loop data-autoplay playsinline
+                 style="width:100%; border-radius:8px;"></video>
+          <p class="caption" style="text-align:center;">Palace of Fine Arts, SF</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 4 · THE TENSION (2:00) ============ -->
+    <section>
+      <p class="kicker">the tension</p>
+      <h2>Two paradigms, neither wins alone</h2>
+      <div class="two-col">
+        <div class="panel">
+          <h3>Classical SfM</h3>
+          <p>Accurate, battle-tested.<br>But optimization-heavy: <span class="hl">hours to days</span> at scale.</p>
+        </div>
+        <div class="panel">
+          <h3>Feedforward models</h3>
+          <p>One forward pass, seconds.<br>But GPU memory walls, and accuracy <span class="hl">degrades</span> as image count grows.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 4b · WHY NOW, THE PRODUCT STORY (1:30) ============ -->
+    <section>
+      <p class="kicker">why now</p>
+      <h2>Three curves crossing</h2>
+      <div class="two-col" style="font-size:0.66em;">
+        <div class="panel">
+          <h3>The moment</h3>
+          <ul>
+            <li>SfM workloads are exploding, digital twins, urban modeling, asset capture, 
+                yet large runs still take <span class="hl">hours to days</span></li>
+            <li>GPU compute is universal, but classical SfM can't fill a fleet</li>
+            <li>Feedforward reconstruction is exploding, instant, robust,
+                but capped at <span class="hl">~hundreds of images</span></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>What our architecture buys</h3>
+          <ul>
+            <li><span class="hl">Progressive results</span>: clusters land in minutes, 
+                users see partial models immediately, not nothing for 8 hours</li>
+            <li><span class="hl">Fleet-shaped work</span>: leaves are independent GPU jobs, 
+                parallel, distributable, autoscalable</li>
+            <li><span class="hl">Graceful failure</span>: a bad branch degrades one cluster;
+                low-evidence cameras ship pose-only instead of poisoning the model</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 5 · THE IDEA (1:00) ============ -->
+    <section class="statement">
+      <p class="kicker">the idea</p>
+      <h2>Use the network where it's strong, <br>
+        <span class="hl">small, tightly-connected local problems</span>, <br>
+        and classical optimization where it's strong, <br>
+        <span class="hl">stitching locals into a consistent whole.</span></h2>
+    </section>
+
+    <!-- ============ 5b · PIPELINE OVERVIEW (1:00) ============ -->
+    <section>
+      <p class="kicker">pipeline · overview</p>
+      <h2>The pipeline at a glance</h2>
+      <!-- Drop the paper's Fig.3 export at img/pipeline_overview.png and it replaces
+           the HTML flow automatically. -->
+      <img src="img/pipeline_overview.png" alt="pipeline overview"
+           style="width:100%; max-height:400px; object-fit:contain; border-radius:8px;"
+           onerror="this.style.display='none'; document.getElementById('povFallback').style.display='flex';">
+      <div id="povFallback" style="display:none; align-items:center; justify-content:center; gap:0.45em;
+                  font-family:'JetBrains Mono',monospace; font-size:0.42em; margin-top:1.2em;
+                  flex-wrap:wrap;">
+        <div style="border:1.5px solid rgba(128,128,128,0.7); border-radius:8px; padding:0.9em 0.8em; text-align:center;">
+          Correspondence search<br>&amp; verification</div>
+        <div style="opacity:0.6;">→</div>
+        <div style="border:2.5px solid #c9a227; border-radius:8px; padding:0.9em 0.8em; text-align:center;">
+          <b>Hierarchical partitioning</b><br>nested dissection,<br>overlapping clusters</div>
+        <div style="opacity:0.6;">→</div>
+        <div style="border:2.5px solid #4a7db5; border-radius:8px; padding:0.9em 0.8em; text-align:center;">
+          <b>Per cluster, fully parallel ×N</b><br>VGGT-Ω poses + intrinsics<br>anchored refinement:<br>triangulate tracks + cluster BA</div>
+        <div style="opacity:0.6;">→</div>
+        <div style="border:2.5px solid #b55b4a; border-radius:8px; padding:0.9em 0.8em; text-align:center;">
+          <b>Hierarchical merge</b><br>Sim(3) + merge BA</div>
+        <div style="opacity:0.6;">→</div>
+        <div style="border:1.5px solid rgba(128,128,128,0.7); border-radius:8px; padding:0.9em 0.8em; text-align:center;">
+          Global BA<br>re-triangulated tracks,<br>all priors released</div>
+        <div style="opacity:0.6;">→</div>
+        <div style="border:1.5px solid rgba(128,128,128,0.7); border-radius:8px; padding:0.9em 0.8em; text-align:center;">
+          Reconstruction</div>
+      </div>
+      <p class="caption" style="margin-top:0.8em; font-size:0.42em;">MegaLoc retrieval
+        prunes the candidate pair set before SIFT matching and two-view verification,
+        producing a verified image graph, recursively partitioned into overlapping clusters
+        by nested dissection. Each cluster is reconstructed by VGGT-Omega and refined by a
+        pose-anchored bundle adjustment, fully in parallel, as are the bottom-up Sim(3)
+        merges. A single unconstrained bundle adjustment over the re-triangulated global
+        tracks produces the final reconstruction. Colored boxes mark our contributions;
+        gray boxes are standard components.</p>
+    </section>
+
+    <!-- ============ 6a · PIPELINE: FRONTEND (1:30) ============ -->
+    <section>
+      <p class="kicker">pipeline · 1 of 3</p>
+      <h2>A verified view graph, cheaply</h2>
+      <ul style="font-size:0.7em;">
+        <li><span class="hl">Retrieve</span>: MegaLoc proposes candidate pairs
+            (k=120 neighbors/image, similarity ≥ 0.15), <span class="hl">O(kN)</span>, not O(N²)</li>
+        <li><span class="hl">Match</span>: 8,192 SIFT features per image, batched GPU (Torch) matcher</li>
+        <li><span class="hl">Verify</span>: 5-point estimation in locally-optimized RANSAC
+            (PoseLib, 2 px) + a two-view bundle-adjustment polish, failed pairs discarded</li>
+        <li>At 1DSfM scale we verify just <span class="hl">2.8–5.8% of all pairs</span>
+            (Alamo: 117,998 of 4.2M)</li>
+        <li><em>Empirical:</em> MegaLoc's k-NN graph tracks physical adjacency, 
+            scene bottlenecks survive as <span class="hl">graph bottlenecks</span>,
+            exactly what the partitioner needs</li>
+      </ul>
+    </section>
+
+    <!-- ============ 6b · THE ELEGANT CORE (1:30) ============ -->
+    <section>
+      <p class="kicker">the elegant core</p>
+      <h2>From factorization to partition</h2>
+      <ul style="font-size:0.66em;">
+        <li>Every bundle adjustment iteration solves a sparse linear system. Its sparsity
+            pattern is the <span class="hl">covisibility graph</span>: two cameras couple
+            only if they observe common structure.</li>
+        <li>Sparse Cholesky solves it by <span class="hl">variable elimination</span>.
+            An elimination ordering is the sequence in which unknowns are removed. Each
+            removal couples the neighbors of the removed variable. New couplings are
+            <span class="hl">fill-in</span>, and fill-in is the cost.</li>
+        <li><span class="hl">Nested dissection</span> minimizes fill-in at scale: find a
+            small separator, eliminate each half independently, eliminate the separator
+            last, recurse.</li>
+        <li>The realization behind this paper (Dellaert lab, HyperSfM 2012): that recursion
+            is also a <span class="hl">hierarchical SfM partition</span>.</li>
+      </ul>
+      <blockquote style="font-size:0.52em; line-height:1.6; border-left:3px solid currentColor;
+                         padding-left:0.9em; opacity:0.92; margin:0.5em 0 0;">
+        "The resulting separator cameras simultaneously define the overlap required for
+        hierarchical reconstruction and the separator variables of the underlying sparse
+        bundle-adjustment system, aligning the reconstruction hierarchy with its
+        computational structure."
+      </blockquote>
+    </section>
+
+    <!-- ============ 6c · LIVE: ELIMINATION & FILL-IN (1:45) ============ -->
+    <section data-nd-demo>
+      <p class="kicker">pipeline · 2 of 3 · the elegant core, live</p>
+      <h2 style="margin-bottom:0.1em;">Partition the view graph = choose the elimination order</h2>
+      <p style="font-size:0.5em; opacity:0.85; margin:0 0 0.4em;">
+        Same system, two orderings. Magenta fill-in is wasted computation and forced
+        coupling between clusters. Nested dissection confines all work to two independent
+        blocks plus a small separator border: the blocks are our clusters, the border is
+        our overlap. That containment is the whole method.</p>
+      <div style="display:flex; gap:0.9em; align-items:flex-start; justify-content:center;">
+        <div>
+          <canvas id="ndGraph" width="400" height="330"
+                  style="border-radius:8px; background:rgba(128,128,128,0.06);"></canvas>
+          <p class="caption" style="text-align:center; margin-top:0.2em;">view graph · cameras &amp; covisibility</p>
+        </div>
+        <div>
+          <canvas id="ndMatrix" width="330" height="330"
+                  style="border-radius:8px; background:rgba(128,128,128,0.06);"></canvas>
+          <p class="caption" style="text-align:center; margin-top:0.2em;">Hessian sparsity · <span id="ndFill" style="font-weight:700;">fill-in:, </span></p>
+        </div>
+        <div>
+          <canvas id="ndTree" width="215" height="330"
+                  style="border-radius:8px; background:rgba(128,128,128,0.06);"></canvas>
+          <p class="caption" style="text-align:center; margin-top:0.2em;">cluster tree</p>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:0.4em;">
+        <button class="nd-btn" onclick="ndRun('naive')">eliminate · naïve order</button>
+        <button class="nd-btn" onclick="ndRun('nd')">eliminate · nested dissection</button>
+        <button class="nd-btn" onclick="ndSplit()">split the system</button>
+        <button class="nd-btn" onclick="ndReset()">reset</button>
+      </div>
+    </section>
+
+    <!-- ============ 6e · FROM ELIMINATION TREE TO CLUSTER TREE (1:30) ============ -->
+    <section>
+      <p class="kicker">the elegant core · in practice</p>
+      <h2>From elimination tree to cluster tree</h2>
+      <div class="two-col" style="font-size:0.68em;">
+        <div class="panel">
+          <h3>Post-processing the raw tree</h3>
+          <ul>
+            <li><span class="hl">Absorb</span> tiny cliques upward, a 5-camera cluster wastes a forward pass</li>
+            <li><span class="hl">Split</span> oversized cliques (&gt; GPU budget, ~70 cams), recursively</li>
+            <li><span class="hl">Inherit</span> separators downward, every child carries its ancestors' interface cameras as overlap</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Why it's the heart of success <em>and</em> failure</h3>
+          <ul>
+            <li>Fat separators → well-anchored merges (Brussels: root cluster alone spans the plaza)</li>
+            <li>Starved separators → merges with <span class="hl">zero evidence</span> (Thanjavur's root: 4 cameras, no internal edges)</li>
+            <li>Over-splitting → chains of near-identical nodes doing redundant work</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 7 · PIPELINE: RECONSTRUCT & MERGE (2:00) ============ -->
+    <section>
+      <p class="kicker">pipeline · 3 of 3</p>
+      <h2>Reconstruct independently, merge bottom-up</h2>
+      <div class="video-card">
+        <video src="videos/brussels_merge_full.mp4" muted data-autoplay playsinline controls
+               style="width:100%; max-height:360px; border-radius:8px;"></video>
+      </div>
+      <p class="caption">Per cluster: VGGT-Ω poses + intrinsics · SIFT tracks · robust BA, 
+        fully parallel. Then: Sim(3) alignment on shared cameras → merge BA →
+        retriangulation → final unconstrained BA.</p>
+    </section>
+
+    <!-- ============ 7b · MERGE SHOWCASE: THANJAVUR (0:45) ============ -->
+    <section>
+      <p class="kicker">pipeline · the merge, again</p>
+      <h2>Same machinery, harder scene</h2>
+      <div class="video-card">
+        <video src="videos/thanjavur_merge_full.mp4" muted data-autoplay playsinline controls
+               style="width:100%; max-height:380px; border-radius:8px;"></video>
+      </div>
+      <p class="caption">Brihadeeswarar Temple: repetitive architecture, the hardest case
+        for wide-baseline matching. Clusters assemble bottom-up into the full site.</p>
+    </section>
+
+    <!-- ============ 8b · IMPLEMENTATION / SYSTEMS (1:30) ============ -->
+    <section>
+      <p class="kicker">how it's built</p>
+      <h2>The systems story</h2>
+      <div class="two-col" style="font-size:0.64em;">
+        <div class="panel">
+          <h3>Stack</h3>
+          <ul>
+            <li><span class="hl">Dask</span>, cluster tree scheduled as a task graph;
+                each leaf (VGGT-Ω + cluster BA) is an independent task fanned across workers</li>
+            <li><span class="hl">GTSAM</span>, all optimization as factor graphs</li>
+            <li><span class="hl">Torch GPU frontend</span>, batched SIFT extraction + matching
+                (8,192 feats/img) · <span class="hl">PoseLib</span> minimal solvers (LO-RANSAC, 2 px)</li>
+            <li><span class="hl">METIS</span> nested dissection · VGGT-Ω in PyTorch ·
+                COLMAP-format interchange throughout</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>End-to-end runtime (single H200 node)</h3>
+          <div class="stat-col">
+            <div class="stat"><span class="num">~20 min</span><span class="lbl">Grand Place Brussels · 234 images · incl. frontend</span></div>
+            <div class="stat"><span class="num">~1 h 40</span><span class="lbl">Roman Forum · 2,364 images · full pipeline</span></div>
+          </div>
+          <p class="caption" style="margin-top:0.5em;">Faster end-to-end than a classical
+            exhaustive frontend <em>alone</em> at this scale, and the leaves haven't left
+            one node yet.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 9 · RESULTS: ACCURACY (1:30) ============ -->
+    <section>
+      <p class="kicker">results · accuracy</p>
+      <h2>Competitive with, and often beating, optimization-only SfM</h2>
+      <div class="stat-row">
+        <div class="stat"><span class="num">4 / 9</span><span class="lbl">IMC scenes where we lead GLOMAP at AUC@3°</span></div>
+        <div class="stat"><span class="num">5 / 9</span><span class="lbl">scenes where we lead at AUC@5° and @10°</span></div>
+        <div class="stat"><span class="num">≥95%</span><span class="lbl">images registered, every scene · margins up to +14.9</span></div>
+      </div>
+      <p class="caption" style="margin-top:0.6em;">On the remaining scenes we are within a
+        few AUC points; the gap concentrates at the strictest threshold, where
+        optimization-based global SfM retains an edge.</p>
+      <p class="mono-small" style="margin-top:0.9em; opacity:0.8;">AUC@N°: angular pose error
+        per camera pair vs. ground truth → fraction of pairs under a threshold, swept from 0
+        to N° → area under that curve. Rewards being far under the threshold, not just under
+        it. 3° is the strictest test.</p>
+    </section>
+
+    <!-- ============ 10 · RESULTS: ROBUSTNESS AT SCALE (1:30) ============ -->
+    <section>
+      <p class="kicker">results · robustness at 3,000 images (1DSfM internet collections)</p>
+      <h2>GLOMAP-level recall, <span class="hl">bounded failure tail</span></h2>
+      <div class="two-col">
+        <div>
+          <div class="img-pair">
+            <figure><img src="img/tol_ours_vs.png" alt="ours"><figcaption>ours</figcaption></figure>
+            <figure><img src="img/tol_glomap_vs.png" alt="glomap"><figcaption>glomap (default)</figcaption></figure>
+          </div>
+          <p class="caption">Tower of London · identical view graph fed to both backends.</p>
+        </div>
+        <div class="stat-col">
+          <div class="stat"><span class="num">60×</span><span class="lbl">lower mean error vs GLOMAP · Roman Forum (9.6 m vs 594 m)</span></div>
+          <div class="stat"><span class="num">2.8%</span><span class="lbl">of all pairs verified at 2,915 images, O(kN) frontend</span></div>
+          <div class="stat"><span class="num">~1%</span><span class="lbl">recall gap on Alamo &amp; ToL, without deleting cameras</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 11 · OBSERVATION 1 / CALIBRATION STRATEGY (1:30) ============ -->
+    <section class="def-slide">
+      <p class="kicker">what we learned · 1</p>
+      <p class="word">trust the network's calibration</p>
+      <p class="meaning">No EXIF? The classical route, two-view self-calibration from
+        fundamental matrices (Fetzer et&nbsp;al.), aggregated over the view graph, reaches
+        <span class="hl">7.5%</span> median focal error in our low-parallax setting.
+        VGGT-Ω predicts <span class="hl">1.1%</span>, consistently
+        (2.3% median variation over 2,133 predictions across 38 clusters).</p>
+      <table class="bk" style="max-width:70%; margin:0.6em auto 0;">
+        <tr><td>Heuristic init 1.2×max(w,h)</td><td class="n">24.7%</td></tr>
+        <tr><td>ViewGraph self-calibration (Fetzer)</td><td class="n">7.5%</td></tr>
+        <tr><td>VGGT-Ω predicted</td><td class="n">1.1%</td></tr>
+        <tr><td>Pinned during cluster BA (priors) → refined</td><td class="n">1.1%</td></tr>
+        <tr><td class="win">Released in the final free BA</td><td class="n win">0.5%</td></tr>
+      </table>
+    </section>
+
+    <!-- ============ 12 · OBSERVATION 2 (1:30) ============ -->
+    <section class="def-slide">
+      <p class="kicker">what we learned · 2</p>
+      <p class="word">partition even when you don't have to</p>
+      <p class="meaning">A 68-image scene fits in one forward pass, yet partitioning into
+        ≤30-image clusters and merging <span class="hl">beats the single pass at every threshold</span>.
+        Feedforward accuracy degrades with graph radius; small clusters keep it in its sweet spot.</p>
+    </section>
+
+    <!-- ============ 12b · QUALITATIVE (0:45) ============ -->
+    <section>
+      <p class="kicker">it runs end-to-end</p>
+      <h2>Real collections, full pipeline</h2>
+      <div class="img-pair tall">
+        <figure><img src="videos/toweroflondon.png" alt="Tower of London"><figcaption>tower of london · 1,576 images</figcaption></figure>
+        <figure><img src="videos/romanforum.png" alt="Roman Forum"><figcaption>roman forum · 2,364 images</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- ============ 13 · LIMITATIONS & NEXT (1:30) ============ -->
+    <section>
+      <p class="kicker">honest ledger</p>
+      <h2>What's still broken</h2>
+      <ul style="font-size:0.78em;">
+        <li>Strictest accuracy (AUC@3°) still trails pure global SfM on some scenes</li>
+        <li>Classical matching + verification remains the runtime bottleneck</li>
+        <li>Explicit dependence on classical SIFT tracks: triangulation, merging, and
+            refinement all inherit their failure modes</li>
+        <li>Merging is brittle when a parent node retains too little track evidence
+            after filtering; low-evidence interfaces need explicit handling</li>
+        <li>Quality is coupled to the foundation model and the partition quality</li>
+        <li>Next: let the model's noise-robustness eat the verification stage entirely</li>
+      </ul>
+    </section>
+
+    <!-- ============ 14 · CLOSE (0:30) ============ -->
+    <section>
+      <p class="kicker">conclusion</p>
+      <h2>Conclusion</h2>
+      <ul style="font-size:0.7em;">
+        <li>A hierarchical SfM framework that integrates multi-view foundation models
+            with classical geometric optimization for large-scale reconstruction</li>
+        <li>Nested dissection aligns the reconstruction hierarchy with the computational
+            structure of bundle adjustment: parallel clusters, principled merges</li>
+        <li>Scales feedforward reconstruction to 3,000-image collections at
+            GLOMAP-level accuracy, with bounded failure tails</li>
+      </ul>
+      <hr class="dash">
+      <p class="mono-small">Kathir Gounder · kathirgounder@gmail.com · github.com/kathirgounder ·
+        questions welcome, backup slides follow</p>
+    </section>
+
+    <!-- ============ BACKUP (Q&A only) ============ -->
+    <section>
+      <p class="kicker">backup · IMC PhotoTourism (no EXIF)</p>
+      <h2>Full accuracy table, AUC@3°/5°/10°</h2>
+      <table class="bk">
+        <tr><th>Scene (#img)</th><th>COLMAP</th><th>GLOMAP</th><th>Ours</th></tr>
+        <tr><td>Piazza San Marco (68)</td><td class="n">58.0 / 71.0 / 83.7</td><td class="n win">72.7 / 82.3 / 90.6</td><td class="n">59.6 / 70.5 / 80.1</td></tr>
+        <tr><td>St. Pauls Cathedral (142)</td><td class="n">72.7 / 78.9 / 85.0</td><td class="n win">74.2 / 80.2 / 85.8</td><td class="n">64.5 / 75.6 / <span class="win">86.0</span></td></tr>
+        <tr><td>British Museum (176)</td><td class="n">61.6 / 72.7 / <span class="win">83.9</span></td><td class="n win">62.0 / 72.7 / 83.5</td><td class="n">53.8 / 63.2 / 78.2</td></tr>
+        <tr><td>Lincoln Memorial (214)</td><td class="n">67.2 / 71.5 / 75.3</td><td class="n">68.4 / 72.5 / 76.0</td><td class="n win">70.4 / 79.1 / 87.3</td></tr>
+        <tr><td>Grand Place Brussels (234)</td><td class="n">68.7 / 76.6 / 84.2</td><td class="n">71.8 / 78.5 / 84.6</td><td class="n win">71.9 / 79.5 / 86.6</td></tr>
+        <tr><td>Sacré-Cœur (281)</td><td class="n">78.5 / 80.9 / 82.8</td><td class="n">78.8 / 81.1 / 83.0</td><td class="n win">80.1 / 87.3 / 93.2</td></tr>
+        <tr><td>Pantheon Exterior (320)</td><td class="n win">79.4 / 83.5 / 87.2</td><td class="n">77.0 / 81.8 / 86.2</td><td class="n">73.6 / 82.6 / <span class="win">90.4</span></td></tr>
+        <tr><td>Sagrada Família (397)</td><td class="n">54.3 / 58.9 / 62.9</td><td class="n">53.8 / 58.7 / 62.9</td><td class="n win">60.0 / 69.1 / 77.8</td></tr>
+        <tr><td>Colosseum Exterior (499)</td><td class="n win">80.7 / 86.1 / 90.1</td><td class="n">80.5 / 85.8 / <span class="win">90.5</span></td><td class="n">66.4 / 76.1 / 85.4</td></tr>
+      </table>
+      <p class="bk-note">All-pairs AUC; unregistered images count as failures. Intrinsics from VGGT-Ω (no EXIF used).</p>
+    </section>
+
+    <section>
+      <p class="kicker">backup · 1DSfM internet collections</p>
+      <h2>N<sub>c</sub> / median / mean position error (m)</h2>
+      <table class="bk">
+        <tr><th>Scene</th><th>1DSfM+BA</th><th>GLOMAP</th><th>GLOMAP+CC</th><th>Ours</th></tr>
+        <tr><td>Alamo (2,915)</td><td class="n">529 / 0.30 / 2e7</td><td class="n">746 / 0.36 / 39.8</td><td class="n">637 / 0.29 / 3.8</td><td class="n">738 / 0.44 / 4.6</td></tr>
+        <tr><td>Madrid Metropolis (1,344)</td><td class="n">291 / 0.50 / 70</td><td class="n">427 / 1.40 / 9.9</td><td class="n">275 / 1.02 / 6.3</td><td class="n">365 / 1.93 / 9.8</td></tr>
+        <tr><td>Piazza del Popolo (2,251)</td><td class="n">308 / 2.10 / 7.0</td><td class="n">451 / 0.38 / 5.1</td><td class="n">395 / 0.36 / 1.1</td><td class="n">420 / 0.47 / 1.9</td></tr>
+        <tr><td>Roman Forum (2,364)</td><td class="n">989 / 0.20 / 3.0</td><td class="n">1,366 / 0.28 / <span class="win">594</span></td><td class="n">1,124 / 0.23 / 1.3</td><td class="n">1,278 / 0.69 / 9.6</td></tr>
+        <tr><td>Tower of London (1,576)</td><td class="n">414 / 1.00 / 40</td><td class="n">586 / 1.01 / 28.4</td><td class="n">479 / 0.43 / 4.4</td><td class="n">584 / 2.34 / 11.1</td></tr>
+      </table>
+      <p class="bk-note">Same MegaLoc view graph for GLOMAP and us, isolates the backend. Claim: near-GLOMAP registration
+        (within ~1% on Alamo/ToL) with mean errors lower on every scene; GLOMAP+CC bounds errors only by deleting 12–36% of cameras.</p>
+    </section>
+
+    <section>
+      <p class="kicker">backup · recall vs trust</p>
+      <h2>Reference cameras within 10 m (% of N<sub>ref</sub>)</h2>
+      <table class="bk">
+        <tr><th>Scene</th><th>GLOMAP</th><th>GLOMAP+CC</th><th>Ours</th></tr>
+        <tr><td>Alamo</td><td class="n win">93.2</td><td class="n">82.3</td><td class="n">92.2</td></tr>
+        <tr><td>Madrid Metropolis</td><td class="n win">86.8</td><td class="n">60.1</td><td class="n">66.8</td></tr>
+        <tr><td>Piazza del Popolo</td><td class="n win">96.5</td><td class="n">85.7</td><td class="n">89.7</td></tr>
+        <tr><td>Roman Forum</td><td class="n win">94.6</td><td class="n">79.8</td><td class="n">78.8</td></tr>
+        <tr><td>Tower of London</td><td class="n win">84.6</td><td class="n">74.7</td><td class="n">79.7</td></tr>
+      </table>
+      <p class="bk-note">vs GLOMAP+CC (the like-for-like bounded-error config): we localize more within 10 m on 4/5 scenes
+        while registering more cameras on all 5.</p>
+    </section>
+
+    <section>
+      <p class="kicker">backup · frontend cost</p>
+      <h2>Verified pair budget vs exhaustive</h2>
+      <table class="bk">
+        <tr><th>Scene</th><th>Exhaustive N(N−1)/2</th><th>Ours</th><th>%</th></tr>
+        <tr><td>Madrid Metropolis (1,344)</td><td class="n">902,496</td><td class="n">51,979</td><td class="n">5.8%</td></tr>
+        <tr><td>Tower of London (1,576)</td><td class="n">1,241,100</td><td class="n">53,734</td><td class="n">4.3%</td></tr>
+        <tr><td>Piazza del Popolo (2,251)</td><td class="n">2,532,375</td><td class="n">97,949</td><td class="n">3.9%</td></tr>
+        <tr><td>Roman Forum (2,364)</td><td class="n">2,793,066</td><td class="n">153,154</td><td class="n">5.5%</td></tr>
+        <tr><td>Alamo (2,915)</td><td class="n">4,247,155</td><td class="n">117,998</td><td class="n">2.8%</td></tr>
+      </table>
+      <p class="bk-note">MegaLoc retrieval (k=120, sim ≥ 0.15) → O(kN) frontend instead of O(N²).</p>
+    </section>
+
+    <section>
+      <p class="kicker">backup · the two observations, in numbers</p>
+      <h2>Calibration ladder &amp; hierarchy ablation</h2>
+      <div class="two-col">
+        <div class="panel">
+          <h3>Focal error (British Museum, no EXIF)</h3>
+          <table class="bk">
+            <tr><td>Heuristic 1.2×max(w,h)</td><td class="n">24.7%</td></tr>
+            <tr><td>Two-view self-calibration</td><td class="n">7.5%</td></tr>
+            <tr><td>VGGT-Ω predicted</td><td class="n">1.1%</td></tr>
+            <tr><td>Anchored BA refinement</td><td class="n">1.1%</td></tr>
+            <tr><td class="win">+ final free BA</td><td class="n win">0.5%</td></tr>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Piazza San Marco (68 img), AUC@3/5/10</h3>
+          <table class="bk">
+            <tr><td>VGGT-Ω single pass</td><td class="n">41.7 / 59.9 / 77.5</td></tr>
+            <tr><td>+ retri + free BA</td><td class="n">62.6 / 74.0 / 84.8</td></tr>
+            <tr><td>partitioned (≤30) + merged</td><td class="n">62.1 / 75.3 / 86.8</td></tr>
+            <tr><td class="win">+ retri + free BA</td><td class="n win">65.2 / 77.2 / 87.8</td></tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <p class="kicker">backup · the linear algebra in one slide</p>
+      <h2>From rubber bands to block structure</h2>
+      <ul style="font-size:0.62em; line-height:1.7;">
+        <li><span class="hl">Objective</span>: min<sub>θ</sub> Σ<sub>obs (i,j)</sub> ‖ π(T<sub>i</sub>, K<sub>i</sub>, X<sub>j</sub>) − u<sub>ij</sub> ‖², 
+            every observation is a rubber band between one camera and one point</li>
+        <li><span class="hl">Each LM iteration</span>: linearize → solve (JᵀJ) δ = −Jᵀr, 
+            the Hessian couples two unknowns iff they share an observation</li>
+        <li><span class="hl">Points eliminated first</span> (Schur): each point is a tiny star, 
+            folding them in couples exactly the cameras that co-observe → the
+            <span class="hl">covisibility graph</span> = camera-Hessian sparsity</li>
+        <li><span class="hl">Nested dissection order</span> → arrowhead form: two independent
+            diagonal blocks + separator border → solve blocks in parallel, then the small
+            separator system, then back-substitute = <em>reconstruct clusters, merge, refine</em></li>
+      </ul>
+    </section>
+
+    <section>
+      <p class="kicker">backup · when the root fails</p>
+      <h2>Sibling merging, the robustness story</h2>
+      <div class="video-card">
+        <video src="videos/thanjavur_merge_full.mp4" muted playsinline controls
+               style="width:100%; max-height:380px; border-radius:8px;"></video>
+      </div>
+      <p class="caption">Thanjavur: doppelganger filtering starved the root separator
+        (4 cameras, zero internal edges) → siblings seat against <em>each other</em> via
+        cross-triangulated shared tracks, then retriangulation + final BA.</p>
+    </section>
+
+    <section>
+      <p class="kicker">backup · qualitative</p>
+      <h2>Same view graph, two backends</h2>
+      <div class="two-col">
+        <div class="panel">
+          <img src="videos/toweroflondon.png" alt="Tower of London" style="width:100%; border-radius:8px;">
+          <p class="caption">Tower of London, ours</p>
+        </div>
+        <div class="panel">
+          <img src="videos/romanforum.png" alt="Roman Forum" style="width:100%; border-radius:8px;">
+          <p class="caption">Roman Forum, ours</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ BACKUP · FAILURE CASE STUDY ============ -->
+    <section>
+      <p class="kicker">backup · failure case study (if asked "when does it break?")</p>
+      <h2>When the merge breaks, and the fix</h2>
+      <ul>
+        <li><span class="hl">Symptom</span>, temple scene: every cluster reconstructs perfectly, final merge lands at garbage scale</li>
+        <li><span class="hl">Root cause</span>, per-cluster BA filters prune boundary tracks, starving the merge
+          interface: two 150+-camera clusters shared only <b>6</b> surviving landmarks</li>
+        <li><span class="hl">Fix</span>, re-triangulate the global tracks on each side of the interface →
+          1,003 anchor pairs → robust Sim(3) with inlier-spread + second-consensus gates → temple assembles</li>
+        <li><span class="hl">Lesson</span>, merge confidence must be proportional to interface evidence;
+          weak seats demote to pose-only and are rescued by global retriangulation</li>
+      </ul>
+    </section>
+
+    <!-- ============ BACKUP · ROBUST OPTIMIZATION ============ -->
+    
+    <!-- ============ BACKUP · WHERE THIS GOES ============ -->
+    <section>
+      <p class="kicker">backup · where this goes</p>
+      <h2>The model can vet its own inputs</h2>
+      <ul>
+        <li>New result (RobustVGGT, 2026): VGGT's final-layer attention separates geometrically
+          consistent views from distractors, <span class="hl">training-free</span></li>
+        <li>Appearance descriptors (DINOv3) fail exactly where SfM needs help:
+          <span class="hl">look-alike but non-overlapping</span> views (doppelgängers)</li>
+        <li>Their limit is ~100 images per pass; our clusters are the natural scope, 
+          internal-signal-gated membership at 3,000-image scale</li>
+      </ul>
+    </section>
+
+  </div>
+</div>
+
+<style>
+  .nd-btn { font-family: 'JetBrains Mono', monospace; font-size: 0.42em; padding: 0.5em 1.1em;
+            margin: 0 0.3em; border: 1.5px solid currentColor; background: transparent;
+            color: inherit; border-radius: 6px; cursor: pointer; }
+  .nd-btn:hover { background: rgba(128,128,128,0.15); }
+</style>
+<script>
+// ── Nested-dissection elimination demo ─────────────────────────────────────
+// Two 9-camera blobs joined by a 3-camera separator. Real symbolic elimination:
+// eliminating v pairwise-connects its uneliminated neighbors (fill-in).
+(function () {
+  const NA = 9, NB = 9, NS = 3, N = NA + NB + NS;
+  const SEP = [N - 3, N - 2, N - 1];
+  const isA = i => i < NA, isB = i => i >= NA && i < NA + NB, isS = i => i >= NA + NB;
+  // layout: blob A left, blob B right, separator column center
+  const pos = [];
+  const rng = mulberry(7);
+  for (let i = 0; i < NA; i++) pos.push([70 + rng() * 110, 45 + rng() * 240]);
+  for (let i = 0; i < NB; i++) pos.push([260 + rng() * 110, 45 + rng() * 240]);
+  for (let i = 0; i < NS; i++) pos.push([205 + rng() * 26, 60 + i * 100 + rng() * 30]);
+  function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  // edges: dense-ish inside blobs (nearest neighbors), separator ties to both sides
+  const baseAdj = Array.from({ length: N }, () => new Set());
+  function link(i, j) { if (i !== j) { baseAdj[i].add(j); baseAdj[j].add(i); } }
+  function nearest(i, cand, k) {
+    return cand.filter(j => j !== i)
+      .sort((a, b) => d2(i, a) - d2(i, b)).slice(0, k);
+  }
+  const d2 = (i, j) => (pos[i][0] - pos[j][0]) ** 2 + (pos[i][1] - pos[j][1]) ** 2;
+  const As = [...Array(NA).keys()], Bs = [...Array(NB).keys()].map(i => i + NA);
+  As.forEach(i => nearest(i, As, 3).forEach(j => link(i, j)));
+  Bs.forEach(i => nearest(i, Bs, 3).forEach(j => link(i, j)));
+  SEP.forEach(s => { nearest(s, As, 2).forEach(j => link(s, j));
+                     nearest(s, Bs, 2).forEach(j => link(s, j)); link(s, SEP[0]); });
+  let adj, eliminated, fills, timer = null, phase = null;
+  let finishedMode = null, splitT = 0, splitRAF = null, flashCross = false;
+  function reset() {
+    adj = baseAdj.map(s => new Set(s)); eliminated = new Set(); fills = []; phase = null;
+    if (timer) { clearInterval(timer); timer = null; }
+    draw(); setFill(', ');
+  }
+  function eliminate(v) {
+    const nbr = [...adj[v]].filter(u => !eliminated.has(u));
+    for (let a = 0; a < nbr.length; a++) for (let b = a + 1; b < nbr.length; b++) {
+      if (!adj[nbr[a]].has(nbr[b])) { adj[nbr[a]].add(nbr[b]); adj[nbr[b]].add(nbr[a]);
+        fills.push([nbr[a], nbr[b]]); }
+    }
+    eliminated.add(v);
+  }
+  window.ndRun = function (mode) {
+    reset();
+    const order = mode === 'naive'
+      ? shuffled([...Array(N).keys()])
+      : [...As, ...Bs, ...SEP];
+    let k = 0;
+    timer = setInterval(() => {
+      if (k >= order.length) { clearInterval(timer); timer = null; phase = mode === 'nd' ? 'done' : null; finishedMode = mode; draw(); return; }
+      if (mode === 'nd') phase = k < NA ? 'A' : (k < NA + NB ? 'B' : 'S');
+      else phase = 'naive';
+      eliminate(order[k++]); draw(); setFill(fills.length + ' new couplings');
+    }, 260);
+  };
+  function shuffled(a) { const r = mulberry(99);
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  window.ndReset = reset;
+  // Split the eliminated system into its independent subproblems. Only possible
+  // after nested dissection: no couplings cross the A/B cut. After a naive run the
+  // fill-in has welded the halves together, so we show the offending couplings.
+  window.ndSplit = function () {
+    if (finishedMode === 'nd') {
+      const t0 = performance.now();
+      const tick = () => {
+        const u = Math.min(1, (performance.now() - t0) / 700);
+        splitT = u * u * (3 - 2 * u);
+        draw();
+        if (u < 1) splitRAF = requestAnimationFrame(tick); else splitRAF = null;
+      };
+      if (splitRAF) cancelAnimationFrame(splitRAF);
+      splitRAF = requestAnimationFrame(tick);
+      setFill('split: 2 independent subproblems + separator');
+    } else if (finishedMode === 'naive') {
+      flashCross = true;
+      let n = 0;
+      for (const i of As) for (const j of Bs) if (adj[i].has(j)) n++;
+      setFill('cannot split: ' + n + ' couplings across the cut');
+      draw();
+    }
+  };
+  function setFill(t) { const el = document.getElementById('ndFill');
+    if (el) el.textContent = 'fill-in: ' + t; }
+  function draw() {
+    const gc = document.getElementById('ndGraph'), mc = document.getElementById('ndMatrix');
+    if (!gc || !mc) return;
+    const g = gc.getContext('2d'), m = mc.getContext('2d');
+    const col = i => isS(i) ? '#c9a227' : (isA(i) ? '#4a7db5' : '#b55b4a');
+    // graph
+    g.clearRect(0, 0, 440, 330);
+    g.lineWidth = 1;
+    for (let i = 0; i < N; i++) for (const j of adj[i]) if (j > i) {
+      const isFill = !baseAdj[i].has(j);
+      g.strokeStyle = isFill ? 'rgba(170,40,170,0.65)' : 'rgba(128,128,128,0.4)';
+      g.setLineDash(isFill ? [3, 3] : []);
+      g.beginPath(); g.moveTo(pos[i][0], pos[i][1]); g.lineTo(pos[j][0], pos[j][1]); g.stroke();
+    }
+    g.setLineDash([]);
+    for (let i = 0; i < N; i++) {
+      g.beginPath(); g.arc(pos[i][0], pos[i][1], isS(i) ? 8 : 6, 0, 7);
+      g.fillStyle = eliminated.has(i) ? 'rgba(128,128,128,0.25)' : col(i);
+      g.fill();
+    }
+    // matrix. Base state fills the canvas. On split, cells animate into the two
+    // frontal (bordered-block) subsystems of the multifrontal method:
+    //   left  = [A rows/cols | separator border]
+    //   right = [B rows/cols | separator border]
+    // The S x S block is drawn in BOTH, because the separator is shared. That shared
+    // block is exactly the overlap the merge uses. Nothing else crosses the cut.
+    m.clearRect(0, 0, 330, 330);
+    const cs0 = 330 / N;
+    const NSUB = NA + NS, cs2 = 13;
+    const L0 = [6, 10], R0 = [330 - NSUB * cs2 - 6, 330 - NSUB * cs2 - 10];
+    const lerp = (a, b) => a + (b - a) * splitT;
+    const subRow = i => isA(i) ? i : (isB(i) ? i - NA : NA + (i - NA - NB));
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      let c = null;
+      if (i === j) c = col(i);
+      else if (baseAdj[i].has(j)) c = 'rgba(128,128,128,0.55)';
+      else if (adj[i].has(j)) c = 'rgba(170,40,170,0.9)';   // fill-in
+      if (!c) continue;
+      const x0 = j * cs0, y0 = i * cs0;
+      const targets = [];
+      const inLeft  = (!isB(i)) && (!isB(j));   // A or S on both axes
+      const inRight = (!isA(i)) && (!isA(j));   // B or S on both axes
+      if (splitT > 0 && inLeft)
+        targets.push([L0[0] + subRow(j) * cs2, L0[1] + subRow(i) * cs2]);
+      if (splitT > 0 && inRight)
+        targets.push([R0[0] + subRow(j) * cs2, R0[1] + subRow(i) * cs2]);
+      if (targets.length === 0) targets.push([x0, y0]);  // base state or A-B cell
+      const sz = lerp(cs0, cs2);
+      m.fillStyle = c;
+      for (const [tx, ty] of targets)
+        m.fillRect(lerp(x0, tx) + 0.5, lerp(y0, ty) + 0.5, sz - 1, sz - 1);
+    }
+    if (splitT > 0.85) {
+      m.font = '10px JetBrains Mono, monospace';
+      m.fillStyle = 'rgba(128,128,128,0.9)';
+      m.fillText('cluster A + separator', L0[0], L0[1] + NSUB * cs2 + 12);
+      m.fillText('cluster B + separator', R0[0], R0[1] - 5);
+    }
+    if (flashCross) {
+      m.fillStyle = 'rgba(200,60,50,0.18)';
+      m.strokeStyle = 'rgba(200,60,50,0.9)'; m.lineWidth = 2;
+      m.fillRect(NA * cs0, 0, NB * cs0, NA * cs0); m.strokeRect(NA * cs0, 0, NB * cs0, NA * cs0);
+      m.fillRect(0, NA * cs0, NA * cs0, NB * cs0); m.strokeRect(0, NA * cs0, NA * cs0, NB * cs0);
+    }
+    drawTree();
+  }
+  function drawTree() {
+    const tc = document.getElementById('ndTree');
+    if (!tc) return;
+    const t = tc.getContext('2d');
+    t.clearRect(0, 0, 215, 330);
+    // the tree only EXISTS under the nested-dissection ordering, naive gets nothing
+    if (!['A', 'B', 'S', 'done'].includes(phase)) {
+      t.font = '11px JetBrains Mono, monospace';
+      t.fillStyle = 'rgba(128,128,128,0.45)';
+      t.fillText('run nested dissection →', 28, 168);
+      return;
+    }
+    const boxes = {
+      S: { x: 52, y: 30, w: 110, h: 62, label: 'root · separator' },
+      A: { x: 8,  y: 190, w: 94, h: 100, label: 'cluster A' },
+      B: { x: 113, y: 190, w: 94, h: 100, label: 'cluster B' },
+    };
+    // tree edges
+    t.strokeStyle = 'rgba(128,128,128,0.6)'; t.lineWidth = 1.5;
+    t.beginPath(); t.moveTo(107, 92); t.lineTo(55, 190); t.stroke();
+    t.beginPath(); t.moveTo(107, 92); t.lineTo(160, 190); t.stroke();
+    const active = { A: phase === 'A', B: phase === 'B', S: phase === 'S' };
+    const dim = phase === 'naive';
+    for (const key of ['S', 'A', 'B']) {
+      const b = boxes[key];
+      t.globalAlpha = dim ? 0.3 : 1.0;
+      t.strokeStyle = active[key] ? '#c9a227' : 'rgba(128,128,128,0.65)';
+      t.lineWidth = active[key] || (phase === 'done') ? 2.5 : 1.2;
+      if (phase === 'done') t.strokeStyle = '#c9a227';
+      roundRect(t, b.x, b.y, b.w, b.h, 8); t.stroke();
+      t.font = '10px JetBrains Mono, monospace';
+      t.fillStyle = 'rgba(128,128,128,0.9)';
+      t.fillText(b.label, b.x + 6, b.y + b.h + 13);
+      // dots
+      if (key === 'S') dots(t, b, ['#c9a227', '#c9a227', '#c9a227'], 3);
+      if (key === 'A') dots(t, b, Array(9).fill('#4a7db5').concat(['#c9a227','#c9a227','#c9a227']), 4);
+      if (key === 'B') dots(t, b, Array(9).fill('#b55b4a').concat(['#c9a227','#c9a227','#c9a227']), 4);
+      t.globalAlpha = 1.0;
+    }
+    function dots(ctx, b, colors, perRow) {
+      colors.forEach((c, k2) => {
+        const r = Math.floor(k2 / perRow), cix = k2 % perRow;
+        ctx.beginPath();
+        ctx.arc(b.x + 16 + cix * 20, b.y + 16 + r * 20, 5, 0, 7);
+        ctx.fillStyle = c; ctx.fill();
+      });
+    }
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    }
+  }
+  document.addEventListener('DOMContentLoaded', reset);
+})();
+</script>
+<script src="vendor/reveal.min.js"></script>
+<script src="vendor/notes.min.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    transition: 'fade',
+    transitionSpeed: 'fast',
+    width: 1280,
+    height: 720,
+    margin: 0.06,
+    controls: false,
+    progress: true,
+    plugins: [ RevealNotes ],
+  });
+</script>
+</body>
+</html>
